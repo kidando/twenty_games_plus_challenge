@@ -29,7 +29,11 @@ If you are following along as well, I encourage you to do the same.
 I do not intend to be super detailed or strict in my approach. Odin, of course, is a low level language. Meaning if you don't watch out, you might cause things like memory leaks. As you can imagine, this sometimes scares devs that are not to familiar with memory management. 
 
 But we are not making games for commercial distribution. I will do what I can to enure we are not crashing programs and causing leaks. But the main goal is to build prototypes for the sake of learning. 
- 
+
+## Screenshots
+ ![Pong](./screenshots/pong.png)
+ Pong
 
 ## TODO
-- [ ] Game #1: Pong
+- [x] Game #1: Pong (Basic Goals)
+- [ ] Game #2: Flappy Bird
