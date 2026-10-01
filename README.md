@@ -31,9 +31,18 @@ I do not intend to be super detailed or strict in my approach. Odin, of course, 
 But we are not making games for commercial distribution. I will do what I can to enure we are not crashing programs and causing leaks. But the main goal is to build prototypes for the sake of learning. 
 
 ## Screenshots
- ![Pong](./screenshots/pong.png)
+<img alt="Pong" height="300" src="./screenshots/pong.png"/>
+<br>
  Pong
+
+<br>
+<br>
+
+<img alt="Flappy Bird" height="500" src="./screenshots/flappybird.png"/>
+<br>
+ Flappy Bird
 
 ## TODO
 - [x] Game #1: Pong (Basic Goals)
-- [ ] Game #2: Flappy Bird
+- [x] Game #2: Flappy Bird
+- [ ] Game #3: Breakout
