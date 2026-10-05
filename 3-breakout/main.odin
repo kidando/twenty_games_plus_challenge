@@ -55,7 +55,7 @@ bricks: [MAX_COLUMNS][MAX_ROWS]Brick
 paddle_width: f32 = PADDLE_WIDTH_MAX
 paddle_position: f32 = PADDLE_STARTING_X
 
-state: State = .GAME_OVER
+state: State = .READY
 paddle_speed: f32 = 220
 lives: i32 = MAX_LIVES
 points: i32 = 0
