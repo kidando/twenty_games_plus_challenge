@@ -32,17 +32,14 @@ But we are not making games for commercial distribution. I will do what I can to
 
 ## Screenshots
 <img alt="Pong" height="300" src="./screenshots/pong.png"/>
-<br>
- Pong
-
-<br>
-<br>
 
 <img alt="Flappy Bird" height="500" src="./screenshots/flappybird.png"/>
-<br>
- Flappy Bird
+
+<img alt="Breakout" height="500" src="./screenshots/breakout.png"/>
+
 
 ## TODO
-- [x] Game #1: Pong (Basic Goals)
+- [x] Game #1: Pong 
 - [x] Game #2: Flappy Bird
-- [ ] Game #3: Breakout
+- [x] Game #3: Breakout
+- [ ] Game #4: Jetpack Joyride
