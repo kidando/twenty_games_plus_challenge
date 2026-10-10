@@ -32,6 +32,12 @@ tex_mountains: rl.Texture2D
 
 game_state:GameState = .RUN
 
+clouds1_position:rl.Vector2 = {0,0}
+mountains1_position:rl.Vector2 = {0,0}
+forest1_position:rl.Vector2 = {0,0}
+grass1_position:rl.Vector2 = {0,0}
+ground1_position:rl.Vector2 = {0,0}
+
 
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
@@ -110,6 +116,12 @@ update :: proc(dt: f32) {
 
 // Draw To Scree
 draw :: proc() {
+	// Draw Background Objects
+	rl.DrawTexture(tex_clouds,i32(clouds1_position.x),i32(clouds1_position.y),rl.WHITE)
+	rl.DrawTexture(tex_mountains,i32(mountains1_position.x),i32(mountains1_position.y),rl.WHITE)
+	rl.DrawTexture(tex_forest,i32(forest1_position.x),i32(forest1_position.y),rl.WHITE)
+	rl.DrawTexture(tex_grass,i32(grass1_position.x),i32(grass1_position.y),rl.WHITE)
+	rl.DrawTexture(tex_ground,i32(ground1_position.x),i32(ground1_position.y),rl.WHITE)
 	// RUN STATE
 	if game_state == .TITLE{
 
