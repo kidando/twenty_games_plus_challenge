@@ -36,10 +36,12 @@ But we are not making games for commercial distribution. I will do what I can to
 <img alt="Flappy Bird" height="500" src="./screenshots/flappybird.png"/>
 
 <img alt="Breakout" height="500" src="./screenshots/breakout.png"/>
+<img alt="Jetpack Joyride" height="500" src="./screenshots/jetpack_joyride.png"/>
 
 
 ## TODO
 - [x] Game #1: Pong 
 - [x] Game #2: Flappy Bird
 - [x] Game #3: Breakout
-- [ ] Game #4: Jetpack Joyride
+- [x] Game #4: Jetpack Joyride
+- [ ] Game #5: Space Invaders
