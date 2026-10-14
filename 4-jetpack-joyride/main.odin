@@ -23,11 +23,25 @@ Spike :: struct {
 }
 
 Coin :: struct {
-	spawned:       bool,
-	position:      rl.Vector2,
-	current_frame: i32,
-	animation_timer:f32
+	spawned:         bool,
+	position:        rl.Vector2,
+	current_frame:   i32,
+	animation_timer: f32,
 }
+
+Bullet :: struct {
+	spawned:  bool,
+	position: rl.Vector2,
+}
+
+Spark :: struct {
+	spawned:         bool,
+	position:        rl.Vector2,
+	current_frame:   i32,
+	animation_timer: f32,
+}
+
+GAME_TITLE: cstring : "Jetpack Tester"
 
 DEBUG_OPACITY :: 128
 
@@ -36,7 +50,7 @@ SCREEN_SIZE: rl.Vector2 : {1280, 720}
 
 GRAVITY :: 9.8
 
-MAX_BULLETS :: 150
+MAX_BULLETS :: 250
 MAX_SPIKES :: 50
 MAX_COINS :: 50
 
@@ -60,6 +74,21 @@ PLAYER_RUN_FRAME_DURATION: f32 : 0.1
 PLAYER_JET_PACK_FORCE: f32 : 150
 PLAYER_ROTATION_SPEED: f32 : 300
 
+BULLET_SPAWN_POSITION: rl.Vector2 : {-6, 8}
+BULLET_VELOCITY: rl.Vector2 : {-0.2, 1}
+BULLET_RESET_POSITION: rl.Vector2 : {-64, -64}
+BULLET_SPEED: f32 : 250
+BULLET_SPRITE_SIZE: f32 : 16
+BULLET_TEXTURE_ORIGIN: rl.Vector2 : {8, 8}
+BULLET_ROTATION: f32 : 90
+BULLET_COLLISION_SIZE: rl.Vector2 : {8, 16}
+BULLET_COLLISION_OFFSET: rl.Vector2 : {-4, -8}
+
+SPARKS_ANIM_SPEED: f32 : 0.1
+SPARKS_SPRITE_SIZE: f32 : 32
+SPARKS_TEXTURE_ORIGIN: rl.Vector2 : {16, 16}
+MAX_SPARKS_FRAMES: i32 : 5
+
 ITEM_SPRITE_SIZE: f32 : 32
 ITEM_TEXTURE_ORIGIN: rl.Vector2 = {16, 16}
 ITEM_VELOCITY: rl.Vector2 : {-1, 0}
@@ -72,8 +101,8 @@ SPIKE_COLLIDER_OFFSET: rl.Vector2 : {12, 12}
 
 COIN_COLLIDER_SIZE: rl.Vector2 : {32, 32}
 COIN_COLLIDER_OFFSET: rl.Vector2 : {16, 16}
-MAX_COIN_FRAMES::8
-COINS_ANIM_SPEED:f32:0.1
+MAX_COIN_FRAMES :: 8
+COINS_ANIM_SPEED: f32 : 0.1
 
 FLOOR_POSITION: f32 = 294
 
@@ -94,8 +123,12 @@ tex_grass: rl.Texture2D
 tex_ground: rl.Texture2D
 tex_mountains: rl.Texture2D
 fnt_main: rl.Font
+snd_jetpack: rl.Sound
+snd_coin: rl.Sound
+snd_game_over: rl.Sound
+snd_bullet_hit: rl.Sound
 
-game_state: GameState = .RUN
+game_state: GameState = .TITLE
 
 clouds1_position: rl.Vector2 = {0, 0}
 clouds2_position: rl.Vector2 = {VIEWPORT_SIZE.x, 0}
@@ -138,10 +171,14 @@ final_score: i32
 pixels_covered: f32
 divisible_by: i32
 
+bullets: [MAX_BULLETS]Bullet
+sparks: [MAX_BULLETS]Spark
+
 
 main :: proc() {
 	rl.SetConfigFlags({.VSYNC_HINT})
-	rl.InitWindow(i32(SCREEN_SIZE.x), i32(SCREEN_SIZE.y), "Jetpack Joyride")
+	rl.InitWindow(i32(SCREEN_SIZE.x), i32(SCREEN_SIZE.y), GAME_TITLE)
+	rl.InitAudioDevice()
 	rl.SetTargetFPS(60)
 	create()
 
@@ -158,6 +195,7 @@ main :: proc() {
 		rl.EndDrawing()
 	}
 	clean_up()
+	rl.CloseAudioDevice()
 	rl.CloseWindow()
 }
 
@@ -174,6 +212,10 @@ create :: proc() {
 	tex_ground = rl.LoadTexture("./textures/tex_ground.png")
 	tex_mountains = rl.LoadTexture("./textures/tex_mountains.png")
 	fnt_main = rl.LoadFontEx("./fonts/upheavtt.ttf", DEFAULT_FONT_SIZE, nil, 0)
+	snd_jetpack = rl.LoadSound("./sounds/snd_jetpack.wav")
+	snd_coin = rl.LoadSound("./sounds/snd_pick_coin.wav")
+	snd_game_over = rl.LoadSound("./sounds/snd_game_over.wav")
+	snd_bullet_hit = rl.LoadSound("./sounds/snd_bullet_hit.wav")
 
 	rl.SetTextureFilter(fnt_main.texture, .POINT)
 
@@ -193,7 +235,9 @@ input :: proc() {
 
 	// RUN STATE
 	if game_state == .TITLE {
-
+		if rl.IsKeyPressed(.SPACE){
+			game_state = .RUN
+		}
 	}
 
 	// RUN STATE
@@ -222,6 +266,8 @@ update :: proc(dt: f32) {
 		update_player_in_game_state_run(dt)
 		update_spikes_in_game_state_run(dt)
 		update_coins_in_game_state_run(dt)
+		update_bullets_in_game_state_run(dt)
+		update_sparks_in_game_state_run(dt)
 	}
 
 	// GAME OVER STATE
@@ -248,11 +294,17 @@ draw :: proc() {
 		draw_player()
 	}
 
+	if game_state == .TITLE {
+		draw_title()
+	}
+
 	// RUN STATE
 	if game_state == .RUN {
+		draw_bullets()
 		draw_player()
 		draw_spikes()
 		draw_coins()
+		draw_sparks()
 		draw_game_hud()
 	}
 
@@ -278,7 +330,8 @@ draw_debug :: proc() {
 		draw_debug_player()
 		draw_debug_spikes()
 		draw_debug_coins()
-
+		draw_debug_bullets()
+		draw_debug_sparks()
 	}
 
 	// GAME OVER STATE
@@ -301,6 +354,10 @@ clean_up :: proc() {
 	rl.UnloadTexture(tex_ground)
 	rl.UnloadTexture(tex_mountains)
 	rl.UnloadFont(fnt_main)
+	rl.UnloadSound(snd_bullet_hit)
+	rl.UnloadSound(snd_coin)
+	rl.UnloadSound(snd_game_over)
+	rl.UnloadSound(snd_jetpack)
 }
 
 player_state_management :: proc() {
@@ -389,17 +446,41 @@ reset_run :: proc() {
 		spikes[i].position = ITEM_RESET_POSITION
 	}
 
-	// Initialize Spikes
+	// Initialize Coins
 	for i in 0 ..< MAX_COINS {
 		coins[i].spawned = false
 		coins[i].position = ITEM_RESET_POSITION
-		coins[i].current_frame = rand.int32_range(0,7)
+		coins[i].current_frame = rand.int32_range(0, 7)
+	}
+
+	// Initialize bullet pool
+	for i in 0 ..< MAX_BULLETS {
+		bullets[i].spawned = false
+		bullets[i].position = BULLET_RESET_POSITION
+
+		sparks[i].spawned = false
+		sparks[i].position = BULLET_RESET_POSITION
+		sparks[i].current_frame = 0
+		sparks[i].animation_timer = 0
 	}
 }
 
 input_player_in_game_state_run :: proc() {
 	if rl.IsKeyDown(.SPACE) {
 		player_velocity.y = -PLAYER_JET_PACK_FORCE
+		if !rl.IsSoundPlaying(snd_jetpack) {
+			rl.PlaySound(snd_jetpack)
+			for i in 0 ..< MAX_BULLETS {
+				if !bullets[i].spawned {
+					bullets[i].spawned = true
+					bullets[i].position = {
+						player_position.x + BULLET_SPAWN_POSITION.x,
+						player_position.y + BULLET_SPAWN_POSITION.y,
+					}
+					break
+				}
+			}
+		}
 	}
 }
 
@@ -507,7 +588,7 @@ update_player_in_game_state_game_over :: proc(dt: f32) {
 
 update_spikes_in_game_state_run :: proc(dt: f32) {
 	spike_spawn_timer += dt
-	if spike_spawn_timer >= spike_spawn_rate {
+	if spike_spawn_timer >= spike_spawn_rate / f32(run_level) {
 		spike_spawn_timer = 0
 		for i in 0 ..< MAX_SPIKES {
 			if !spikes[i].spawned {
@@ -553,6 +634,7 @@ update_spikes_in_game_state_run :: proc(dt: f32) {
 
 			if rl.CheckCollisionRecs(player_rec, spike_collision_rec) {
 				game_state = .GAME_OVER
+				rl.PlaySound(snd_game_over)
 				final_score = (coins_collected * 10) + distance_covered
 				if hi_score < final_score {
 					hi_score = final_score
@@ -563,7 +645,7 @@ update_spikes_in_game_state_run :: proc(dt: f32) {
 }
 update_coins_in_game_state_run :: proc(dt: f32) {
 	coin_spawn_timer += dt
-	if coin_spawn_timer >= coin_spawn_rate {
+	if coin_spawn_timer >= coin_spawn_rate / f32(run_level) {
 		coin_spawn_timer = 0
 		for i in 0 ..< MAX_COINS {
 			if !coins[i].spawned {
@@ -581,10 +663,10 @@ update_coins_in_game_state_run :: proc(dt: f32) {
 		if coins[i].spawned {
 			coins[i].position += ITEM_VELOCITY * ITEM_SPEED * f32(run_level) * dt
 			coins[i].animation_timer += dt
-			if coins[i].animation_timer >= COINS_ANIM_SPEED{
+			if coins[i].animation_timer >= COINS_ANIM_SPEED {
 				coins[i].animation_timer = 0
 				coins[i].current_frame += 1
-				if coins[i].current_frame == MAX_COIN_FRAMES{
+				if coins[i].current_frame == MAX_COIN_FRAMES {
 					coins[i].current_frame = 0
 				}
 			}
@@ -617,8 +699,48 @@ update_coins_in_game_state_run :: proc(dt: f32) {
 
 			if rl.CheckCollisionRecs(player_rec, coin_collision_rec) {
 				coins_collected += 1
+				rl.PlaySound(snd_coin)
 				coins[i].position = ITEM_RESET_POSITION
 				coins[i].spawned = false
+			}
+		}
+	}
+}
+
+update_bullets_in_game_state_run :: proc(dt: f32) {
+	for i in 0 ..< MAX_BULLETS {
+		if bullets[i].spawned {
+			bullets[i].position += BULLET_SPEED * rl.Vector2Normalize(BULLET_VELOCITY) * dt
+
+			if bullets[i].position.y > FLOOR_POSITION {
+
+				// Spawn Sparks
+				for i in 0 ..< MAX_BULLETS {
+					if !sparks[i].spawned {
+						sparks[i].position = bullets[i].position
+						sparks[i].spawned = true
+						break
+					}
+				}
+				rl.PlaySound(snd_bullet_hit)
+				bullets[i].spawned = false
+				bullets[i].position = BULLET_RESET_POSITION
+			}
+		}
+	}
+}
+update_sparks_in_game_state_run :: proc(dt: f32) {
+	for i in 0 ..< MAX_BULLETS {
+		if sparks[i].spawned {
+			sparks[i].animation_timer += dt
+			if sparks[i].animation_timer > SPARKS_ANIM_SPEED {
+				sparks[i].current_frame += 1
+				if sparks[i].current_frame == MAX_SPARKS_FRAMES {
+					sparks[i].spawned = false
+					sparks[i].position = BULLET_RESET_POSITION
+					sparks[i].current_frame = 0
+					sparks[i].animation_timer = 0
+				}
 			}
 		}
 	}
@@ -656,7 +778,7 @@ draw_coins :: proc() {
 	for i in 0 ..< MAX_COINS {
 		if coins[i].spawned {
 			coin_tex_source_rec: rl.Rectangle = {
-				x      = f32(coins[i].current_frame)*ITEM_SPRITE_SIZE,
+				x      = f32(coins[i].current_frame) * ITEM_SPRITE_SIZE,
 				y      = 0,
 				width  = ITEM_SPRITE_SIZE,
 				height = ITEM_SPRITE_SIZE,
@@ -678,6 +800,63 @@ draw_coins :: proc() {
 			)
 		}
 	}
+}
+
+draw_bullets :: proc() {
+	for i in 0 ..< MAX_BULLETS {
+		if bullets[i].spawned {
+			bullet_source_rec: rl.Rectangle = {
+				x      = 0,
+				y      = 0,
+				width  = BULLET_SPRITE_SIZE,
+				height = BULLET_SPRITE_SIZE,
+			}
+			bullet_destination_rec: rl.Rectangle = {
+				x      = bullets[i].position.x,
+				y      = bullets[i].position.y,
+				width  = BULLET_SPRITE_SIZE,
+				height = BULLET_SPRITE_SIZE,
+			}
+			rl.DrawTexturePro(
+				tex_bullet,
+				bullet_source_rec,
+				bullet_destination_rec,
+				BULLET_TEXTURE_ORIGIN,
+				BULLET_ROTATION,
+				rl.WHITE,
+			)
+		}
+	}
+
+}
+
+draw_sparks :: proc() {
+	for i in 0 ..< MAX_BULLETS {
+		if sparks[i].spawned {
+			sparks_source_rec: rl.Rectangle = {
+				x      = f32(sparks[i].current_frame) * SPARKS_SPRITE_SIZE,
+				y      = 0,
+				width  = SPARKS_SPRITE_SIZE,
+				height = SPARKS_SPRITE_SIZE,
+			}
+			sparks_dest_rec: rl.Rectangle = {
+				x      = sparks[i].position.x,
+				y      = sparks[i].position.y,
+				width  = SPARKS_SPRITE_SIZE,
+				height = SPARKS_SPRITE_SIZE,
+			}
+			rl.DrawTexturePro(
+				tex_sparks,
+				sparks_source_rec,
+				sparks_dest_rec,
+				SPARKS_TEXTURE_ORIGIN,
+				0,
+				rl.WHITE,
+			)
+		}
+	}
+
+
 }
 
 draw_debug_spikes :: proc() {
@@ -717,6 +896,34 @@ draw_debug_coins :: proc() {
 				i32(COIN_COLLIDER_SIZE.y),
 				{0, 0, 255, DEBUG_OPACITY},
 			)
+		}
+	}
+}
+
+draw_debug_bullets :: proc() {
+	for i in 0 ..< MAX_BULLETS {
+		if bullets[i].spawned {
+			rl.DrawRectangle(
+				i32(bullets[i].position.x + BULLET_COLLISION_OFFSET.x),
+				i32(bullets[i].position.y + BULLET_COLLISION_OFFSET.y),
+				i32(BULLET_COLLISION_SIZE.x),
+				i32(BULLET_COLLISION_SIZE.y),
+				{255, 0, 255, DEBUG_OPACITY},
+			)
+		}
+	}
+
+	rl.DrawPixel(
+		i32(player_position.x + BULLET_SPAWN_POSITION.x),
+		i32(player_position.y + BULLET_SPAWN_POSITION.y),
+		{225, 0, 255, 255},
+	)
+}
+
+draw_debug_sparks :: proc() {
+	for i in 0 ..< MAX_BULLETS {
+		if sparks[i].spawned {
+			rl.DrawPixel(i32(sparks[i].position.x), i32(sparks[i].position.y), rl.BLACK)
 		}
 	}
 }
@@ -908,5 +1115,67 @@ draw_game_hud :: proc() {
 		GUI_FONT_SIZE,
 		0,
 		rl.WHITE,
+	)
+}
+
+
+draw_title :: proc() {
+	rl.DrawTextEx(
+		fnt_main, 
+		GAME_TITLE, 
+		{
+			(VIEWPORT_SIZE.x / 2)-(rl.MeasureTextEx(fnt_main,GAME_TITLE,28,0).x/2), 
+			52
+		}, 
+		28, 
+		0, 
+		rl.WHITE
+	)
+	rl.DrawTextEx(
+		fnt_main, 
+		GAME_TITLE, 
+		{
+			(VIEWPORT_SIZE.x / 2)-(rl.MeasureTextEx(fnt_main,GAME_TITLE,28,0).x/2), 
+			50
+		}, 
+		28, 
+		0, 
+		{254,174,52,255}
+	)
+	rl.DrawTextEx(
+		fnt_main, 
+		GAME_TITLE, 
+		{
+			(VIEWPORT_SIZE.x / 2)-(rl.MeasureTextEx(fnt_main,GAME_TITLE,28,0).x/2), 
+			48
+		}, 
+		28, 
+		0, 
+		rl.BLACK
+	)
+
+	start_text:cstring:"Press 'SPACE' to Start"
+
+	rl.DrawTextEx(
+		fnt_main, 
+		start_text, 
+		{
+			(VIEWPORT_SIZE.x / 2)-(rl.MeasureTextEx(fnt_main,start_text,14,0).x/2), 
+			(VIEWPORT_SIZE.y/2)+2
+		}, 
+		14, 
+		0, 
+		rl.BLACK
+	)
+	rl.DrawTextEx(
+		fnt_main, 
+		start_text, 
+		{
+			(VIEWPORT_SIZE.x / 2)-(rl.MeasureTextEx(fnt_main,start_text,14,0).x/2), 
+			VIEWPORT_SIZE.y/2
+		}, 
+		14, 
+		0, 
+		rl.WHITE
 	)
 }
